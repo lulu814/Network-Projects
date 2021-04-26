@@ -1,0 +1,137 @@
+# Project 3
+
+Project 3 is a analysis of different TCP variants' performance and fairness.
+
+## Team
+Lu Liu
+Tuo Liu
+
+# Methodology
+
+## Tools
+ns/python/excel
+
+The tools we will use in the experiments include NS-2, python, and excel. 
+
+We use NS-2, a discrete event driven network simulator, to conduct all the experiments. By setting up NS simulator instance and toggling the network configurations, we can use it to simulate congestions on the network with different variants.
+
+We use python to parse and analyze the results of the NS-2 simulations in the trace files and use excel to visualize the data and generate graphs.
+
+## Experiments and Variables
+
+To generalize the TCP behavior, we will add more variables into each experiment. The same experiment is repeated with only one variable changes at a time so we can correlate the TCP behavior to this variable. For same parameter (CBR rate), we use different seeds, different start time for TCP&CBR to add some randomness to the simulation. Repeat the same experiments differently multiple times to get average value.
+
+We can adjust the socket buffer size to make sure TCP can use all (almost) the bandwidth without any CBR flow. When CBR flow is added, the TCP flow should use the rest of the available bandwidth.
+
+We use Constant Bit Rate (CBR) over UDP as a variable in the network to change the bandwidth avaiable to TCP streams for all experiments. We set the CBR rate from 1Mb to 10Mb as a contention to TCP flow. The bandwidth of each link is 10Mb so we stop the experiment when CBR rate reaches the link bottleneck.
+
+### Experiment 1
+```
+TCP                                        TCP Sink
+  +---+                           +---+
+  | 1 |                           | 4 |
+  +---+                           +---+
+       \                         /
+        \                       /
+         \                     /
+          +---+           +---+
+      CBR | 2 +-----------+ 3 | CBR Sink
+          +---+           +---+
+         /                     \
+        /                       \
+       /                         \
+  +---+                           +---+
+  | 5 |                           | 6 |
+  +---+                           +---+
+
+```
+On top of the CBR rate, we use four different TCP congestion control variants, namingly Tahoe, Reno, NewReno, and Vegas, as a variable as well. The TCP congestion control policy can be set when we create tcp agent during ns simulation, then we create FTP traffic over TCP from N1 to N4.
+
+### Experiment 2
+```
+TCP1                                       TCP1 Sink
+     +---+                           +---+
+     | 1 |                           | 4 |
+     +---+                           +---+
+          \                         /
+           \                       /
+            \                     /
+             +---+           +---+
+         CBR | 2 +-----------+ 3 | CBR Sink
+             +---+           +---+
+            /                     \
+           /                       \
+          /                         \
+     +---+                           +---+
+     | 5 |                           | 6 |
+     +---+                           +---+
+ TCP2                                      TCP2 Sink
+
+```
+For this experiment, we use the same 1Mb to 10 Mb variation to repeat the experiments. We create two FTP traffics over TCP from N1 to N4, N5 to N6. The TCP agents use the flowing pairs of congestion control policies:
+- Reno/Reno
+- NewReno/Reno
+- Vegas/Vegas
+- NewReno/Vegas
+
+### Experiment 3
+```
+TCP                                        TCP Sink
+     +---+                           +---+
+     | 1 |                           | 4 |
+     +---+                           +---+
+          \                         /
+           \                       /
+            \                     /
+             +---+           +---+
+             | 2 +-----------+ 3 |
+             +---+           +---+
+            /                     \
+           /                       \
+          /                         \
+     +---+                           +---+
+     | 5 |                           | 6 |
+     +---+                           +---+
+ CBR                                       CBR Sink
+```
+For this experiment, we use CBR rate 1Mb to 10Mb, the Queuing disciplines like DropTail and Random Early Drop and TCP congestion control policies as variables. Quenuing disciplines can be set when we create links in ns simulation.
+
+## Performance and Interpretation
+latency, throughput, drop rate
+
+In general, we will calculate throughput over time, end-to-end latency over time, and packet drop rate, and plot charts based on these metrics to interprete the performance of each TCP variant.
+
+Throughput is the amount of packets moved from source node to destination node in given time period, measured in Mbps.
+
+End-to-end latency is the average time taken for packets to be transmitted across the network from source to destination, measured in seconds.
+
+Packet drop rate is the percentage of pakcets that failed to reach the destination when traveling across the network.
+
+### Experiment 1
+
+For this experiment result, we plot three charts of the performance metrics as we increase the CBR from 1 to 10 based on the data for all four variants (Tahoe, Reno, NewReno, Vegas):
+- throughput vs. CBR
+- latency vs. CBR 
+- drop rate vs. CBR 
+
+From the charts we can see which TCP variant(s) have higher average throughput, lowest average latency, and the fewest drops. 
+
+### Experiment 2
+
+For this experiment result, similarly, we plot charts of the comparison of throughput, drop rate and latency between each variant pair. 
+To check if different combinations of variants fair to each other, we can compare the lines of the variant pairs in the chart. 
+If the values are roughtly close with each other and seem to be in the same track as CBR increases, then we can say the variant pairs are fair for each other; if there are large divergence, then there would be unfairness between them to make one takeover more resource than the other. 
+
+### Experiment 3
+
+For this experiment result, we plot charts of throughput and latency over the whole time period for different queuing algorithms and TCP variants: 
+- DropTail Reno
+- DropTail SACK
+- RED Reno
+- RED SACK
+
+From the charts, we can see if each queuing discipline provide fair bandwidth to each flow and which queuing algorithm has a better performance under congestion.
+
+# Credits
+Good tutorial for setup ns2 simulation and analyse the throughput of the trace file
+http://www.mathcs.emory.edu/~cheung/Courses/558/Syllabus/A4-TCP-Sim/TCP-Throughput.html
