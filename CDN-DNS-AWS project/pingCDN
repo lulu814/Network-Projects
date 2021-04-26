@@ -1,0 +1,15 @@
+#!/bin/bash
+CDN_SERVERS=('ec2-54-159-99-25.compute-1.amazonaws.com'
+  'ec2-50-18-189-64.us-west-1.compute.amazonaws.com'
+  'ec2-18-229-54-5.sa-east-1.compute.amazonaws.com'
+  'ec2-13-244-183-11.af-south-1.compute.amazonaws.com'
+  'ec2-13-36-115-83.eu-west-3.compute.amazonaws.com'
+  'ec2-13-51-89-160.eu-north-1.compute.amazonaws.com'
+  'ec2-65-1-183-44.ap-south-1.compute.amazonaws.com'
+  'ec2-13-208-85-51.ap-northeast-3.compute.amazonaws.com'
+  'ec2-54-79-190-216.ap-southeast-2.compute.amazonaws.com')
+
+for cdn_host in "${CDN_SERVERS[@]}";
+do
+  echo "Get main page from $cdn_host $(curl -o /dev/null -s -w %{time_total} http://$cdn_host:40001/Main_Page)"
+done

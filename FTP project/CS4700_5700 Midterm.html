@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<!-- saved from url=(0058)https://course.ccs.neu.edu/cs5700sp21/midterm-project.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>CS4700/5700 Midterm</title>
+  <link href="./CS4700_5700 Midterm_files/project.css" rel="stylesheet">
+</head>
+
+<body data-new-gr-c-s-check-loaded="14.1007.0" data-gr-ext-installed="">
+  <article class="container">
+    <h2>CS 4700/5700 - NETWORK FUNDAMENTALS / FUNDAMENTALS OF COMPUTER NETWORKING</h2>
+    <h3>Midterm Project: FTP Client</h3>
+    <div class="well">
+      <b>This project is due at 11:59pm on Sunday, March 7, 2021.</b>
+    </div>
+
+    <h3><a>Description</a></h3>
+    <p>
+      
+      For the midterm, you will implement a client for a protocol that uses two sockets rather than one.
+    </p>
+    <p>
+      Specifically, in this project you will develop a client for the <strong>File Transfer Protocol</strong> (FTP).
+      We have setup an FTP server for you to use when developing and debugging your client.
+      The server is available at 
+      <a href="ftp://networks-teaching-ftp.ccs.neu.edu/">ftp://networks-teaching-ftp.ccs.neu.edu</a>.
+      You will receive an email with your authentication info for this server.
+    </p>
+
+    <h3><a>What is FTP</a></h3>
+    <p>
+      Developed in 1971, the File Transfer Protocol (FTP) is one of the oldest protocols still in common use today.
+      FTP's development predates TCP/IP, yet the protocol still works fairly well on the modern internet.
+
+      <br>
+
+      FTP is a client-server oriented protocol for uploading, downloading, and managing files.
+      The FTP server's job is to listen for incoming connections from clients and then respond to their requests.
+      These requests include all common file and directory operations, such as listing the files in a directory, making and deleting directories, uploading files from the client machine to the server, and downloading files from the server to the client machines.
+      FTP clients connect to FTP servers and issue commands to tell the server what to do.
+
+      <br>
+
+      Because the FTP protocol is so old, it has many, many features, some of which are vestigial and no longer make sense on the modern internet (e.g., uploading a file in 36-bit, EBCDIC format directly to a line-feed printer), and others that are so esoteric that they are rarely used and supported.
+      Wikipedia has an <a href="https://en.wikipedia.org/wiki/File_Transfer_Protocol">extensive
+      article</a> on the FTP protocol, as well as a <a href="https://en.wikipedia.org/wiki/List_of_FTP_commands">list
+      of all FTP protocol commands</a>.  The official specification of
+      FTP is in IETF Request For Comments 959 (<a href="https://tools.ietf.org/html/rfc959">RFC 959</a>). 
+      Fortunately, a FTP client only needs to support a minimum, basic set of commands in order to function.
+      We outline the necessary functionality for the FTP client you will develop below.
+      Our reference implementation is roughly 300 lines of Python3, including self-documentation and extensive error checking.
+    </p>
+
+    <h3><a>FTP Server Decorum</a></h3>
+    <p>
+      You should use the FTP server we've setup with your credentials to help you develop and debug your client.
+      After logging in, the server will give each student access to an isolated folder for uploading and downloading files.
+    </p>
+
+    <h4 class="warn">WARNING: DO NOT TEST YOUR FTP CLIENT ON PUBLIC FTP SERVERS</h4>
+    <p>
+      There are many FTP servers out there on the internet.
+      Even though some of these FTP servers are "public" and allow anonymous access (i.e., no password required), <b>we ask that you confine your testing to our server</b>.
+      Since your clients will behave weirdly and violate the FTP protocol during development, you don't want to send this kind of anomalous traffic to unsuspecting FTP servers, as it may alarm their administrators.
+    </p>
+
+    <h4 class="warn">WARNING: DO NOT UPLOAD GIANT OR ILLEGAL FILES TO OUR SERVER</h4>
+    <p>
+      Our server does not have unlimited capacity.
+      If we observe a student uploading large files to the server (say, larger than 10 megabytes), those files will be deleted and we will cut off the student's access.
+
+      <br>
+
+      Similarly, students are responsible for the files they upload to the server and are expected to exercise good judgement.
+      Do not upload illegal or inappropriate content to the server.
+      Any student that violates this rule will be reported to the University administration, along with copies of the offending files.
+    </p>
+
+    <h3><a>Getting Familiar with FTP</a></h3>
+    <p>
+      If you've never used an FTP client or server before, it may be helpful to use an existing client to familiarize yourself with how FTP works at a high-level.
+      We recommend that beginners start with <a href="https://filezilla-project.org/">FileZilla</a>, which is a popular, feature packed, open-source FTP client that works across all major operating systems.
+      Note that FileZilla is a GUI client; in this project you will be building a command line client.
+
+      <br>
+
+      Unix and BSD-compliant systems like Linux and MacOS have a <a href="https://linux.die.net/man/1/ftp">command line FTP client</a> named <i>ftp</i> that is typically pre-installed, or can be installed easily from the command line.
+      This command line ftp client is interactive: running it opens an FTP shell where the user can type FTP commands like "dir" and "cd" to view and change remote filesystem directories, respectively.
+      The "help" command will list available FTP commands, and "help [command name]" provides helpful information about a specific command.
+
+      <br>
+
+      The <a href="https://linux.die.net/man/1/curl"><i>curl</i></a> command line program, which is also available for most Unix and BSD-based systems, supports downloading files from FTP servers.
+      It has a command line syntax that is most similar (though not identical) to the FTP client that you will be developing in this assignment.
+    </p>
+
+<h3><a>High Level Requirements</a></h3>
+
+    <p> Your goal is to write a basic FTP client application. This client will:
+</p><ul>
+  <li>
+  successfully run on the command line (<b>10%</b>),
+  </li>
+  <li>and must support the following
+  five operations: </li>
+
+  <ul>
+    <li> directory listing (<b>10%</b>), </li>
+    <li>making directories
+    (<b>10%</b>),</li>
+    <li>file deletion (<b>10%</b>),</li>
+    <li>copying and moving files to the FTP
+    server (<b>30%</b>), </li>
+    <li>and copying and moving files from the FTP server
+    (<b>30%</b>).</li>
+
+  </ul>
+
+
+</ul>
+      <br>
+
+      Your FTP client must execute on the command line using the following syntax:
+    <p></p>
+
+    <pre>$ ./5700ftp operation param1 [param2]</pre>
+
+    <p>
+      <i>operation</i> is a string that specifies what operation the user is attempting to perform.
+      Valid operations are <i>ls</i>, <i>mkdir</i>, <i>rm</i>, <i>rmdir</i>, <i>cp</i>, and <i>mv</i>. 
+      Each operation requires either one or two parameters, denoted by <i>param1</i> and <i>param2</i> on the command line.
+      <i>param1</i> and <i>param2</i> are strings that either represent a path to a file on the local filesystem, or a URL to a file or directory on an FTP server.
+
+      <br>
+
+      <i>5700ftp</i> is not required to print anything to STDOUT or STDERR.
+      That said, students may add functionality that prints out FTP protocol messages (e.g., to aid debugging), directory listings, and errors (e.g., network or socket errors, FTP protocol errors, etc.).
+
+      <br>
+
+      Here is an example of a full-fledged <i>5700ftp</i> implementation.
+      Note that it includes two optional parameters (<i>--verbose</i> and <i>--help</i>); <b>your client is not required to have these optional parameters</b>.
+      The help for this client describes what each operation does, how to interpret the command parameters with respect to each operation, and the URL format used to specify the FTP server's connection information.
+    </p>
+    <pre>$ ./5700ftp --help
+      usage: 5700ftp.py [-h] [--verbose] operation params [params ...]
+
+      FTP client for listing, copying, moving, and deleting files and directories on remote FTP servers.
+
+      positional arguments:
+      operation      The operation to execute. Valid operations are 'ls', 'rm', 'rmdir',
+      'mkdir', 'cp', and 'mv'
+      params         Parameters for the given operation. Will be one or two paths and/or URLs.
+
+      optional arguments:
+      -h, --help     show this help message and exit
+      --verbose, -v  Print all messages to and from the FTP server
+
+      # Available Operations
+
+      This FTP client supports the following operations:
+
+      ls &lt;URL&gt;                 Print out the directory listing from the FTP server at the given URL
+      mkdir &lt;URL&gt;              Create a new directory on the FTP server at the given URL
+      rm &lt;URL&gt;                 Delete the file on the FTP server at the given URL
+      rmdir &lt;URL&gt;              Delete the directory on the FTP server at the given URL
+      cp &lt;ARG1&gt; &lt;ARG2&gt;         Copy the file given by ARG1 to the file given by
+      ARG2. If ARG1 is a local file, then ARG2 must be a URL, and vice-versa.
+      mv &lt;ARG1&gt; &lt;ARG2&gt;         Move the file given by ARG1 to the file given by
+      ARG2. If ARG1 is a local file, then ARG2 must be a URL, and vice-versa.
+
+      # URL Format and Defaults
+
+      Remote files and directories should be specified in the following URL format:
+
+      ftp://[USER[:PASSWORD]@]HOST[:PORT]/PATH
+
+      Where USER and PASSWORD are the username and password to access the FTP server,
+      HOST is the domain name or IP address of the FTP server, PORT is the remote port
+      for the FTP server, and PATH is the path to a file or directory.
+
+      HOST and PATH are the minimum required fields in the URL, all other fields are optional.
+      The default USER is 'anonymous' with no PASSWORD. The default PORT is 21.
+
+      # Example Usage
+
+      List the files in the FTP server's root directory:
+
+      $ ./5700ftp ls ftp://bob:s3cr3t@ftp.example.com/
+
+      List the files in a specific directory on the FTP server:
+
+      $ ./5700ftp ls ftp://bob:s3cr3t@ftp.example.com/documents/homeworks
+
+      Delete a file on the FTP server:
+
+      $ ./5700ftp rm ftp://bob:s3cr3t@ftp.example.com/documents/homeworks/homework1.docx
+
+      Delete a directory on the FTP server:
+
+      $ ./5700ftp rmdir ftp://bob:s3cr3t@ftp.example.com/documents/homeworks
+
+      Make a remote directory:
+
+      $ ./5700ftp mkdir ftp://bob:s3cr3t@ftp.example.com/documents/homeworks-v2
+
+      Copy a file from the local machine to the FTP server:
+
+      $ ./5700ftp cp other-hw/essay.pdf ftp://bob:s3cr3t@ftp.example.com/documents/homeworks-v2/essay.pdf
+
+      Copy a file from the FTP server to the local machine:
+
+      $ ./5700ftp cp ftp://bob:s3cr3t@ftp.example.com/documents/todo-list.txt other-hw/todo-list.txt
+    </pre>
+
+    <h3><a>(Il)Legal Libraries</a></h3>
+    <p>
+      Part of the challenge of this assignment is that <b>all FTP request and response code must be written by the student, from scratch</b>.
+      In other words, you need to implement the FTP protocol yourself.
+      Students may use any available libraries to create socket connections and parse URLs.
+      However, you may not use <b>any</b> libraries/modules/etc. that implement FTP.
+      Obviously, your code is also not allowed to invoke system tools that implement FTP like <i>ftp</i> or <i>curl</i>.
+
+      <br>
+
+      For example, if you were to write your FTP client in Python3, the following modules would all be allowed: <i>socket</i> and
+      <i>urllib.parse</i>.
+      However, the following modules would <b>not</b> be allowed: <i>urllib.request</i>, <i>ftplib</i>, and <i>pycurl</i>.
+
+      <br>
+
+      If students have any questions about the legality of any libraries please post them to the Class Forum.
+      It is much safer to ask ahead of time, rather than turn in code that uses a questionable library and receive points off for the midterm after the fact.
+    </p>
+
+    <h3><a>Implementation Details</a></h3>
+    <p>
+      In this assignment, you will develop an FTP client.
+      This client must be able to login to a remote FTP server and perform several operations on the remote server.
+      In this section, we will explain how to connect to an FTP server, the format of FTP protocol requests and responses, and the FTP commands that your client must support.
+
+      <br>
+
+      Modern FTP implementations use TCP/IP as their transport and network protocols.
+      Thus, to connect to an FTP Server, your client will need to open a TCP socket.
+      By default, FTP servers listen on port 21, although users may override the default port by specifying a different one on the command line.
+      Once your client has connected a TCP socket to a remote server, it will begin exchanging text-formatted requests and responses with the FTP server.
+
+      <br>
+
+      All FTP requests take the form:
+    </p>
+
+    <pre>COMMAND &lt;param&gt; &lt;...&gt;\r\n</pre>
+
+    <p>
+      COMMAND is typically a three or four letter command, in all caps, that tells the FTP server to perform some action.
+      Depending on what command is sent, additional parameters may also be required.
+      Note that parameters should not be surrounded by &lt; and &gt; symbols; we use those to denote things in messages that are optional.
+      All FTP requests end with \r\n.
+    </p>
+    <p>
+      After each request, the FTP server will reply with at least one response.
+      Some requests will elicit two responses.
+      Additionally, FTP servers send a welcome message after the TCP connection is opened, before the client sends any requests. All FTP responses take the form:
+    </p>
+
+    <pre>CODE &lt;human readable explanation&gt; &lt;param&gt;\r\n</pre>
+
+    <p>
+      CODE is a three digit integer that specifies whether the FTP server was able to complete the request.
+
+      </p><ul>
+        <li>1XX codes indicate that more action is expected (e.g., waiting for a file to download or upload);</li>
+        <li>2XX codes indicate success;</li>
+        <li>3XX indicates preliminary success, but more action is required (e.g., your client sent a username, but now a valid password is required);</li>
+        <li>4XX, 5XX, and 6XX codes indicate that an error has occurred.</li>
+      </ul>
+
+      More details on FTP response codes can be found <a href="https://en.wikipedia.org/wiki/List_of_FTP_server_return_codes">here</a>
+      and in <a href="https://tools.ietf.org/html/rfc959">RFC 959</a>.
+      Some servers include an optional, human-readable explanation in each response that explain what happened or what is expected of the client.
+      These human-readable messages are useful for debugging purposes. Responses may also include a parameter that is necessary for the client to function (most importantly, for the PASV command, see below).
+      All FTP responses end with \r\n.
+      
+      <br>
+
+      Your FTP client must be able to send the following FTP commands:
+
+      <ul>
+        <li>
+          <pre>USER &lt;username&gt;\r\n</pre>
+          Login to the FTP server as the specified <i>username</i>. If the user does not specify a username on the command line, then your client may assume that the username is "anonymous". This is the first request that your client must send to the FTP server.
+        </li>
+        <li>
+          <pre>PASS &lt;password&gt;\r\n</pre>
+          Login to the FTP server using the specified <i>password</i>. If the user specified a password on the command line, then this is the second request that your client must send to the FTP server. If the user did not specify a password on the command line then your client may skip this request. 
+        </li>
+        <li>
+          <pre>TYPE I\r\n</pre>
+          Set the connection to 8-bit binary data mode (as opposed to 7-bit ASCII or 36-bit EBCDIC). Your client should set the TYPE before attempting to upload or download any data.
+        </li>
+        <li>
+          <pre>MODE S\r\n</pre>
+          Set the connection to stream mode (as opposed to block or compressed). Your client should set MODE before attempting to upload or download any data.
+        </li>
+        <li>
+          <pre>STRU F\r\n</pre>
+          Set the connection to file-oriented mode (as opposed to record- or page-oriented). Your client should set STRU before attempting to upload or download any data.
+        </li>
+        <li>
+          <pre>LIST &lt;path-to-directory&gt;\r\n</pre>
+          List the contents of the given directory on the FTP server. Equivalent to <i>ls -l</i> on the Unix command line.
+        </li>
+        <li>
+          <pre>DELE &lt;path-to-file&gt;\r\n</pre>
+          Delete the given file on the FTP server. Equivalent to <i>rm</i> on the Unix command line.
+        </li>
+        <li>
+          <pre>MKD &lt;path-to-directory&gt;\r\n</pre>
+          Make a directory at the given path on the FTP server. Equivalent to <i>mkdir</i> on the Unix command line.
+        </li>
+        <li>
+          <pre>RMD &lt;path-to-directory&gt;\r\n</pre>
+          Delete the directory at the given path on the FTP server. Equivalent to <i>rmdir</i> on the Unix command line.
+        </li>
+        <li>
+          <pre>STOR &lt;path-to-file&gt;\r\n</pre>
+          Upload a new file with the given path and name to the FTP server.
+        </li>
+        <li>
+          <pre>RETR &lt;path-to-file&gt;\r\n</pre>
+          Download a file with the given path and name from the FTP server.
+        </li>
+        <li>
+          <pre>QUIT\r\n</pre>
+          Ask the FTP server to close the connection.
+        </li>
+        <li>
+          <pre>PASV\r\n</pre>
+          Ask the FTP server to open a data channel. 
+        </li>
+      </ul>
+    <p></p>
+
+    <h3><a>Control Channel, Data Channel</a></h3>
+    <p>
+      The FTP protocol is a bit unusual in that it requires not one, but <em>two</em> socket connections.
+      The first socket that your client will open to the FTP server is known as the control channel.
+      The control channel is typically the connection to port 21 on the FTP server.
+      The control channel is for sending FTP requests and receiving FTP responses.
+      However, <b>no data is uploaded or downloaded on the control channel</b>.
+      To download any data (i.e., a file or <b>a directory listing</b>) or upload any data (i.e., a file) your client must ask the server to open a data channel on a second port.
+      
+      <br>
+
+      The FTP command to open a data channel is PASV. The client sends PASV to the FTP server, and it responds with a message that looks something like this:
+    </p>
+
+    <pre>227 Entering Passive Mode (192,168,150,90,195,149).</pre>
+
+    <p>
+      Code 227 indicates success.
+      The six numbers in parenthesis are the IP address and port that the client should connect a TCP/IP socket to to create the data channel.
+      The first four numbers are the IP address (192.168.150.90 in this example) and the last two numbers are the port. Port numbers are 16-bits, so the two numbers represent the top and bottom 8-bits of the port number, respectively. In this example, the port number is (195 &lt;&lt; 8) + 149 = 50069.
+    </p>
+    <p>
+      The semantics of the data channel are always the same: <b>once the data transfer is complete the data channel must be closed by the sender</b>.
+      What changes is <i>who</i> closes the channel. If the server is sending data (i.e., a downloaded file or a directory listing) then the server will close the data socket once all data has been sent.
+      This is how the client knows that all data has been received.
+      Alternatively, if the client is sending data (i.e. uploading a file), then the client must close the data socket once all data has been sent.
+      This is how the server knows that all data has been received.
+      If the client wishes to upload or download additional data, e.g., perform multiple operations during a single control channel session, then one PASV data channel must be opened per operation.
+      
+      <br>
+
+      Note that the control channel (i.e., the first socket) must stay open while the data channel is open.
+      Once the data channel is closed, the client is free to end the FTP session by sending QUIT to the FTP server on the control channel and closing the control socket.
+    </p>
+
+    <h3><a>Language</a></h3>
+    <p>
+      You can write your code in whatever language you choose, as long as your code compiles and runs on <b>unmodified</b> Khoury College Linux machines <b>on the command line</b>.
+      Do not use libraries that are not installed by default on the Khoury College Linux machines, or that are disallowed for this project.
+      You may use IDEs (e.g. Eclipse) during development, but do not turn in your IDE project without a Makefile.
+      Make sure you code has <b>no dependencies</b> on your IDE.
+    </p>
+
+    <h3><a>Suggested Implementation Approach</a></h3>
+    <p>
+      When starting work on this project, we recommend implementing the required functionality in the following order.
+      </p><ul>
+        <li>
+          <b>Command Line Parsing.</b> 
+          Start by writing a program that successfully implements the required command line syntax and can parse the incoming data, e.g., FTP URLs.
+        </li>
+        <li>
+          <b>Connection Establishment.</b>
+          Add support for connecting and logging-in to an FTP server.
+          This includes establishing a TCP control channel, correctly sending USER, PASS, TYPE, MODE, STRU, and QUIT commands.
+          Print out responses from the server to confirm that each command is being received and interpreted correctly.
+        </li>
+        <li>
+          <b>MKD and RMD.</b>
+          Implement support for making and deleting remote directories.
+          These commands are simpler because they do not require a data channel.
+          Verify that your client is working by using a standard FTP client to double check the results.
+        </li>
+        <li>
+          <b>PASV and LIST.</b>
+          Implement support for creating a data channel, then implement the LIST command to test it.
+        </li>
+        <li>
+          <b>STORE, RETR, and DELE.</b>
+          Complete your client by adding support for file upload, download, and deletion.
+          Double check your implementation by comparing it to the results from a standard FTP client.
+        </li>
+        <li>
+          Double check that your client works successfully on a CCIS Linux machine, e.g., login.ccs.neu.edu
+        </li>
+      </ul>
+    <p></p>
+
+      <h3>Submitting Your Project</h3>
+      <p>
+      We will use gradescope to handle submissions of your project code.
+      You can form pairs using gradescopes submission tools.
+      <br>
+      <br>
+      To turn-in your project, you should submit your (thoroughly documented) code along with two other files:
+      </p>
+
+      <ul>
+	<li>A Makefile that compiles your code.</li>
+	<li>
+	A plain-text (no Word or PDF) README file.
+	In this file, you should briefly describe your high-level approach, any challenges you faced,
+	and an overview of how you tested your code.
+	<b>You must also include a breakdown of who worked on what part(s) of the code.</b>
+	</li>
+
+      </ul>
+
+      <p>
+      Your README, Makefile, source code, etc. should all be placed in a directory. 
+      You submit your project as a zip of that directory to Gradescope.
+      <b>Only one group member needs to submit your project.</b>
+      Your group may submit as many times as you wish.
+      Only the last submission will be graded, and the time of the last submission will determine whether your assignment is late.
+      </p>
+
+    <h3><a>Grading</a></h3>
+    <p>
+      This midterm is worth 15% of your final grade. You will receive full credit if 1) your code compiles, runs, and produces the expected output, and 2) you have not used any illegal libraries. 
+      All student code will be scanned by plagiarism detection software to ensure that students are not copying code from the Internet or each other.
+    </p>
+    <p>
+      To test your <i>5700ftp</i> client, we will ask it to perform a number of tasks on the command line, including uploading and downloading files, creating and deleting directories, and deleting files. In other words, we will exercise its expected functionality. If your client does not obey the command line specification then we will not be able to exercise its functionality, and you will lose points. Similarly, points will be lost for each expected feature that is not implemented correctly. 
+    </p>
+ 
+  </article>
+
+
+</body></html>

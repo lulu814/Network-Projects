@@ -1,0 +1,69 @@
+#!/bin/bash
+DNS_SERVER=cs5700cdnproject.ccs.neu.edu
+CDN_SERVERS=('ec2-54-159-99-25.compute-1.amazonaws.com'
+  'ec2-50-18-189-64.us-west-1.compute.amazonaws.com'
+  'ec2-18-229-54-5.sa-east-1.compute.amazonaws.com'
+  'ec2-13-244-183-11.af-south-1.compute.amazonaws.com'
+  'ec2-13-36-115-83.eu-west-3.compute.amazonaws.com'
+  'ec2-13-51-89-160.eu-north-1.compute.amazonaws.com'
+  'ec2-65-1-183-44.ap-south-1.compute.amazonaws.com'
+  'ec2-13-208-85-51.ap-northeast-3.compute.amazonaws.com'
+  'ec2-54-79-190-216.ap-southeast-2.compute.amazonaws.com')
+DNS_SERVER_DIR=team-w-dns
+HTTP_SERVER_DIR=team-w-http
+PORT=40001
+NAME=cs5700cdn.example.com
+ORIGIN=cs5700cdnorigin.ccs.neu.edu
+USERNAME=''
+KEYFILE=''
+
+while getopts ":p:o:n:u:i:" opt; do
+  case ${opt} in
+  p)
+    PORT=${OPTARG}
+    ;;
+  o)
+    ORIGIN=${OPTARG}
+    ;;
+  n)
+    NAME=${OPTARG}
+    ;;
+  u)
+    USERNAME=${OPTARG}
+    ;;
+  i)
+    KEYFILE=${OPTARG}
+    ;;
+  \?)
+    echo "usage: ./stopCDN -p <port> -o <origin> -n <name> -u <username> -i <keyfile>"
+    ;;
+  esac
+done
+# debugging argument parsing
+function print_args() {
+  echo "port: $PORT, origin: $ORIGIN, name: $NAME, username: $USERNAME, keyfile: $KEYFILE"
+}
+
+print_args
+
+# deploy dns server
+echo "Stopping DNS server on $DNS_SERVER..."
+pid=$(ssh -i $KEYFILE $USERNAME@$DNS_SERVER "ps aux | grep $USERNAME.*dnsserver | grep -v grep" | awk '{ print $2 }')
+if [ -n "$pid" ]; then
+  ssh -i $KEYFILE $USERNAME@$DNS_SERVER "kill -9 $pid"
+  echo "DNS server with pid $pid stopped on $DNS_SERVER..."
+else
+  echo "No DNS server is running on $DNS_SERVER"
+fi
+
+# deploy http server
+for cdn_host in "${CDN_SERVERS[@]}"; do
+  echo "Stopping HTTP server on $cdn_host..."
+  http_pid=$(ssh -i $KEYFILE $USERNAME@$cdn_host "ps aux | grep $USERNAME.*httpserver  | grep -v grep" | awk '{ print $2 }')
+  if [ -z "$http_pid" ]; then
+    echo "No http server is running on $cdn_host"
+    continue
+  fi
+  ssh -i $KEYFILE $USERNAME@$cdn_host "kill -9 $http_pid"
+  echo "HTTP server with pid $http_pid stopped on $cdn_host..."
+done

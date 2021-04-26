@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+import argparse
+import socket
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from collections import OrderedDict, defaultdict
+import logging
+import csv
+from os import path as file_path, remove, makedirs
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+import heapq
+import os
+
+HOST_NAME = socket.gethostname()
+ORIGIN_SERVER_PORT = 8080
+ORIGIN_SERVER_NAME = 'cs5700cdnorigin.ccs.neu.edu'
+GRADE_BEACON = '/grading/beacon'
+BUFFER_SIZE = 4000
+CACHE_FOLDER = 'cache'
+
+
+def http_get(path):
+    try:
+        url = 'http://{}:{}{}'.format(ORIGIN_SERVER_NAME, ORIGIN_SERVER_PORT, path)
+        req = Request(url)
+        req.add_header('Accept-Encoding', 'gzip, deflate')
+        r = urlopen(req)
+        return b'200', r.read()
+    except HTTPError as e:
+        return str(e.code).encode(), b''
+
+
+# return content portion of html response
+def fetch(path):
+    cache_file = CACHE_FOLDER + path
+    if file_path.exists(cache_file):
+        logging.debug("Cache from file {}".format(cache_file))
+        try:
+            with open(cache_file, 'rb', os.O_NONBLOCK) as in_file:
+                code = int(in_file.readline())
+                content = in_file.read()
+            return content, code
+        except OSError:
+            logging.debug("cannot open the file {}".format(cache_file))
+    code, content = http_get(path)
+    try:
+        makedirs(file_path.dirname(cache_file), exist_ok=True)
+        with open(cache_file, 'wb', os.O_NONBLOCK) as out_file:
+            content_code = code + b'\n' + content
+            out_file.write(content_code)
+    except OSError:
+        logging.debug("Cannot write file to disk {}".format(cache_file))
+
+    return content, int(code)
+
+
+class CacheLRUDisk:
+    """In memory cache + disk cache, default size 10 MB for memory"""
+
+    def __init__(self, disk_size=10 * 1024 * 1024):
+        self.disk_size = disk_size
+        self.mem_cache = OrderedDict()
+        self.mem_used = 0
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def get(self, path):
+        if path in self.mem_cache:
+            self.logger.debug('Hit for {}'.format(path))
+            return self._get(path)
+        self.logger.debug(
+            'Miss for {}, fetch from origin {}'.format(path, ORIGIN_SERVER_NAME))
+        code, content = http_get(path)
+        content_size = len(content)
+        old_disk = self.disk_size
+        self._evict(content_size)
+        self._put(path, content, code)
+        self.logger.debug(
+            'Old disk available {}, new disk available {}, content size {}'.format(old_disk, self.disk_size,
+                                                                                   content_size))
+        return content, int(code)
+
+    def _get(self, path):
+        self.mem_cache.move_to_end(path)
+        cache_file = CACHE_FOLDER + path
+        logging.debug("Cache from file {}".format(cache_file))
+        try:
+            with open(cache_file, 'rb', os.O_NONBLOCK) as in_file:
+                code = int(in_file.readline())
+                content = in_file.read()
+            return content, int(code)
+        except OSError:
+            logging.debug("cannot open the file {}".format(cache_file))
+
+    def _put(self, path, content, code):
+        if len(content) > self.disk_size:
+            return
+
+        # write to file
+        cache_file = CACHE_FOLDER + path
+        try:
+            makedirs(file_path.dirname(cache_file), exist_ok=True)
+            with open(cache_file, 'wb', os.O_NONBLOCK) as out_file:
+                content_code = code + b'\n' + content
+                out_file.write(content_code)
+                self.disk_size -= len(content)
+                self.mem_cache[path] = len(content)
+                self.mem_cache.move_to_end(path)
+        except OSError:
+            logging.debug("Cannot write file to disk {}".format(cache_file))
+
+    def _evict(self, content_size):
+        while content_size > self.disk_size:
+            path, content_size = self.mem_cache.popitem(last=False)
+            cache_file = CACHE_FOLDER + path
+            if file_path.exists(cache_file):
+                try:
+                    remove(cache_file)
+                    self.disk_size += content_size
+                except:
+                    self.logger.debug('Remove from disk failed')
+                    break
+            self.logger.debug('Evict path {} from cache'.format(path))
+
+
+class CacheLRU:
+    """In memory cache + disk cache, default size 10 MB for memory"""
+
+    def __init__(self, memory_size=10 * 1024 * 1024, disk_size=10 * 1024 * 1024):
+        self.memory_size = memory_size
+        self.disk_size = disk_size
+        self.mem_cache = OrderedDict()
+        self.mem_used = 0
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def get(self, path):
+        if path in self.mem_cache:
+            self.logger.debug('Hit for {}'.format(path))
+            return self._get(path)
+        self.logger.debug(
+            'Miss for {}, fetch from origin {}'.format(path, ORIGIN_SERVER_NAME))
+        content, code = fetch(path)
+        content_size = len(content)
+        old_mem_used = self.mem_used
+        self._evict(content_size)
+        self._put(path, content, code)
+        self.logger.debug(
+            'Old mem used {}, new mem used {}, content size {}'.format(old_mem_used, self.mem_used, content_size))
+        return content, code
+
+    def _get(self, path):
+        self.mem_cache.move_to_end(path)
+        return self.mem_cache[path]
+
+    def _put(self, path, content, code):
+        if self.mem_used + len(content) > self.memory_size:
+            return
+        self.mem_cache[path] = (content, code)
+        self.mem_cache.move_to_end(path)
+        self.mem_used += len(content)
+
+    def _evict(self, content_size):
+        while self.mem_used + content_size > self.memory_size and self.mem_cache:
+            k, content = self.mem_cache.popitem(last=False)
+            self.logger.debug('Evict path {} from cache'.format(k))
+            self.mem_used -= len(content)
+            cache_file = CACHE_FOLDER + k
+            if file_path.exists(cache_file):
+                try:
+                    remove(cache_file)
+                except:
+                    self.logger.debug('Remove from disk failed')
+            self.logger.debug('Evict path {} from cache'.format(k))
+
+
+class CacheLFU:
+    def __init__(self, memory_size=10 * 1024 * 1024, disk_size=10 * 1024 * 1024):
+        self.memory_size = memory_size
+        self.disk_size = disk_size
+        self.mem_cache_key = dict()
+        self.mem_cache_freq = []
+        self.page_freq = dict()
+        self.mem_used = 0
+        self.least_freq = 1021824
+        self._initialize_freq()
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def _initialize_freq(self):
+        try:
+            with open('pageviews.csv', newline='') as pages:
+                reader = csv.reader(pages, delimiter=',')
+                for row in reader:
+                    p = '/' + row[0]
+                    self.page_freq[p] = int(row[1])
+        except OSError:
+            print('cannot open pageviews.csv')
+
+    def _evict(self, content_size):
+        while self.mem_used > 0 and self.mem_used + content_size > self.memory_size and self.mem_cache_key:
+            _, path = heapq.heappop(self.mem_cache_freq)
+            content, code = self.mem_cache_key[path]
+            self.mem_used -= len(content)
+            del self.mem_cache_key[path]
+            cache_file = CACHE_FOLDER + path
+            if file_path.exists(cache_file):
+                try:
+                    remove(cache_file)
+                except:
+                    self.logger.debug('Remove from disk failed')
+            self.logger.debug('Evict path {} from cache'.format(path))
+
+    def _get(self, path):
+        content, code = self.mem_cache_key[path]
+        # self._update(path, content, code)
+        return content, code
+
+    def _put(self, path, content, code):
+        if self.mem_used + len(content) > self.memory_size:
+            return
+        if path in self.mem_cache_key:
+            return
+        if path in self.page_freq:
+            p_freq = self.page_freq[path]
+        else:
+            p_freq = 1
+        self.mem_cache_key[path] = (content, code)
+        heapq.heappush(self.mem_cache_freq, (p_freq, path))
+        self.mem_used += len(content)
+
+    def get(self, path):
+        if path in self.mem_cache_key:
+            self.logger.debug('Hit for {}'.format(path))
+            return self._get(path)
+        self.logger.debug(
+            'Miss for {}, fetch from origin {}'.format(path, ORIGIN_SERVER_NAME))
+        content, code = fetch(path)
+        content_size = len(content)
+        old_mem_used = self.mem_used
+        self._evict(content_size)
+        self._put(path, content, code)
+        self.logger.debug(
+            'Old mem used {}, new mem used {}, content size {}'.format(old_mem_used, self.mem_used, content_size))
+        return content, code
+
+
+cache = CacheLRUDisk()
+
+
+# cache = CacheLRU()
+# cache = CacheLFU()
+
+
+class RequestHandler(BaseHTTPRequestHandler):
+    """ Our cdn request handler, the http server will response with cached content. If cache is not present,
+    it queries origin server """
+
+    def send_response(self, code, message=None):
+        """ override to customize header """
+        self.log_request(code)
+        self.send_response_only(code)
+        self.send_header('Server', 'CDN server ' + HOST_NAME)
+        self.send_header('Date', self.date_time_string())
+        self.send_header('Content-Encoding', 'gzip')
+        self.send_header('Connection', 'close')
+        self.end_headers()
+
+    def do_GET(self):
+        # handle grade beacon
+        if self.path == GRADE_BEACON:
+            self.send_response(204)
+            return
+        content, code = cache.get(self.path)
+        self.send_response(code)
+        self.wfile.write(content)
+
+
+def start_http_server(port, origin):
+    global ORIGIN_SERVER_NAME
+    ORIGIN_SERVER_NAME = origin
+    server_address = ('0.0.0.0', port)
+    return HTTPServer(server_address, RequestHandler)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Start a HTTP Server.')
+    parser.add_argument(
+        '-p', type=int, help='Port number that HTTP server binds to.', required=True, metavar='port')
+    parser.add_argument(
+        '-o', type=str, help='Name of the origin server.', required=True, metavar='origin')
+    parser.add_argument('--verbose', '-v', help='Print all debug message from http server', action='store_true')
+
+    args = parser.parse_args()
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+
+    webserver = start_http_server(args.p, args.o)
+    try:
+        webserver.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        webserver.server_close()
+
+
+if __name__ == '__main__':
+    main()

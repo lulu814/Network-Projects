@@ -1,0 +1,15 @@
+# CS5700_SP21
+
+## Project 1
+
+In this project, I first reviewed all tutorials professor provided about the socket programming.
+The first challenge to me is to fully understand the socket communications between client and server.
+
+Then I played with telnet to connect to the server, where I could see the sample of EVAL message and have a better idea on what I should do with my code.
+
+Next, I started programming from building socket connections and write the parser for the arg. I used the argparse library to parse the arguments and flags. For the expression evaluation part, I used python eval to do the calculation, which saved a lot of works. I had an error of wrong EOF reading when I used eval, where I realized that recv cannot receive all messages from server all at once. Thus, I implemented a function to receive all message until reading EOF, e.g. "\n". 
+
+After completing the basic functions of receiving/sending/processing messages for the client code, I started to work on ssl connections. It was kind of challenging to me as I have never used this module in Python. After reading documentations about ssl and testing the code, I finally got it work with ssl connection.
+
+I tried different arguments in the command line and received two secret flags. I completed this project mainly on khoury machine via ssh so that I could make sure it works in the required environment. 
+

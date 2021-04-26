@@ -1,0 +1,36 @@
+Trying 129.10.111.152...
+Connected to networks-teaching-ftp.ccs.neu.edu.
+Escape character is '^]'.
+220 Welcome to Khoury Networking Teaching FTP
+USER tuol
+331 Please specify the password.
+PASS pUVmMhHuWQgNo9ljknX4
+230 Login successful.
+TYPE I
+200 Switching to Binary mode.
+MODE S
+200 Mode set to S.
+PASV
+227 Entering Passive Mode (129,10,111,152,4,159).
+LIST /
+150 Here comes the directory listing.
+226 Directory send OK.
+PASV
+227 Entering Passive Mode (129,10,111,152,5,149).
+RETR /test.txt
+150 Opening BINARY mode data connection for /test.txt (64 bytes).
+226 Transfer complete.
+PASV
+227 Entering Passive Mode (129,10,111,152,7,76).
+STOR /test1.txt
+150 Ok to send data.
+226 Transfer complete.
+LIST /
+425 Use PORT or PASV first.
+PASV
+227 Entering Passive Mode (129,10,111,152,4,15).
+LIST /
+150 Here comes the directory listing.
+226 Directory send OK.
+DELE /test1.txt
+250 Delete operation successful.

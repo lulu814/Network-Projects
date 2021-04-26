@@ -1,0 +1,23 @@
+
+article {
+  margin: auto;
+  max-width: 800px;
+}
+
+pre {
+  background: lightgrey;
+  padding: 0 1em;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+table, tr, td {
+  text-align: center;
+  border: solid 1px;
+}
+
+.warn {
+  color: red;
+}
